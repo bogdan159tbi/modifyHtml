@@ -1,4 +1,40 @@
 #include "lib.h"
+#define MAX_ATTR 10
+
+char **attrs(char *value,int *elem)
+{	
+	*elem = 0;
+	char **atribute = calloc(MAX_ATTR,sizeof(char*));
+	if(!atribute)
+		return NULL;
+	char *p = strtok(value,";");
+	while(p)
+	{
+		atribute[*elem] = calloc(100,sizeof(char));
+		strcpy(atribute[*elem],p);
+		(*elem)++;
+		p = strtok(NULL,";");
+	}
+	return atribute;
+}
+void trim(char **value)// elimina spatii valoare atribut style
+{	int nr = 0;
+	char *aux = calloc(30,sizeof(char));
+	for(int i = 0; (*value)[i] != '\0';i++)
+		if((*value)[i] != ' ' && (*value)[i] != '\n')
+			aux[nr++] = (*value)[i];
+	strcpy(*value,aux);
+	free(aux);
+}
+void nameVal(char **name,char **val,char *eticheta)
+{
+ char *p;
+ p = strtok(eticheta,":");
+ strcpy(*name,p);
+ p = strtok(NULL,":");
+ strcpy(*val,p);
+ free(eticheta);
+}
 
 int main(int argc, char **argv)
 {
@@ -11,7 +47,7 @@ int main(int argc, char **argv)
 		return 1;
 	b = a;
 	TParseState currentState = 1,nextState;
-	char *tmp = calloc(30,sizeof(char)),*value = calloc(30,sizeof(char));
+	char *tmp = calloc(30,sizeof(char)),*value = calloc(100,sizeof(char));
 	void *st = NULL;
 	int nr = 0;
 	
@@ -38,13 +74,11 @@ int main(int argc, char **argv)
 			new = calloc(1,sizeof(TNodArb));
 			if(!new->info)
 				new->info = calloc(1,sizeof(TNodInfo));
-			if(!new->info->type){
-			new->info->type = calloc(30,sizeof(char));
+			if(!new->info->type)
+				new->info->type = calloc(30,sizeof(char));
 			new->info->type[strlen(new->info->type)] = c;
-			}
 			if(!st)
 				st = InitS(sizeof(TNodArb));
-			nr++;// numara tag uri pagina
 			PushS(st,(void*)new);
 		}
 		else if(currentState == 3 && nextState == 3)
@@ -69,11 +103,14 @@ int main(int argc, char **argv)
 				PopS(st,scos);
 				TArb tata = calloc(1,sizeof(TNodArb));
 				int rez = PopS(st,tata);
-				if(!rez)
+				
+				if(!rez){
 					a = scos;
-				else{
+					//printf("%s\n",a->info->type);
+				}
+				else{ 
 				if(!tata->firstChild)
-				tata->firstChild = scos;
+					tata->firstChild = scos;
 				else
 					{	TArb p = tata->firstChild;
 						while(p->nextSibling != NULL)
@@ -84,16 +121,75 @@ int main(int argc, char **argv)
 				}
 			}
 		}
-		else if(currentState == 5 && nextState == 6) 
+		else if(currentState == 5 && nextState == 6){
+			tmp= calloc(100,sizeof(char));
 			tmp[strlen(tmp)] = c;//atribut
+		}
 		else if(currentState == 6 && nextState == 6)
 			tmp[strlen(tmp)] = c;
-		else if(currentState == 8 && nextState == 5)
-			printf("sf at val\n");//adauga valoarea atributului
+		else if(currentState == 8 && nextState == 5){
+			//adauga valoarea atributului	
+			//printf("%s=\"%s\"\n",tmp,value);
+			TArb scos = calloc(1,sizeof(TNodArb));
+			int rez = PopS(st,scos);
+			if(rez)
+			{
+			if(!scos->info)	
+			scos->info = calloc(1,sizeof(TNodInfo));
+			if(strcmp(tmp,"style")){
+				if(!scos->info->otherAttributes)
+				{
+					scos->info->otherAttributes = calloc(1,sizeof(TNodAttr));
+					TAttr p = scos->info->otherAttributes;
+					p->name = tmp;
+					p->value = value;
+				}
+				else //adauga la sf1
+				{
+					TAttr p = scos->info->otherAttributes;
+					for(; p->next != NULL; p = p->next );
+					p->next = calloc(1,sizeof(TNodAttr));
+					p = p->next;
+					p->name = tmp;
+					p->value = value;
+				//valoarea
+				}	
+			}
+			else
+			{
+				//separa termenii pt value si name si ; intre ele						
+				int elem;
+				char **sir = attrs(value,&elem);
+				char *nume,*val;
+				for(int i = 0;i < elem;i++){
+					nume = calloc(30,sizeof(char));
+ 					val = calloc(30,sizeof(char));
+					nameVal(&nume,&val,sir[i]);
+					trim(&val);
+					if(!scos->info->style)
+						{scos->info->style = calloc(1,sizeof(TNodAttr));
+						scos->info->style->name = nume;
+						scos->info->style->value = val;
+						}
+					else //adauga la sf1
+					{ 
+					TAttr p = scos->info->style;
+					for(p = scos->info->style; p->next != NULL; p = p->next );
+					p->next = calloc(1,sizeof(TNodAttr));
+					p = p->next;
+					p->name = nume;
+					p->value = val;
+					}
+				}
+			}
+			PushS(st,(void*)scos);
+			}
+			value = calloc(100,sizeof(char));//reinitializeaza
+		}
 		else if(currentState == 8 && nextState == 8)
 			value[strlen(value)] = c;
 		else if(currentState == 9 && nextState == 1){
-			printf("self closing\n");
+			//self closing
 			TArb scos = calloc(1,sizeof(TNodArb));
 			int rez = PopS(st,scos);
 			if(rez)
@@ -106,18 +202,26 @@ int main(int argc, char **argv)
 		}
 		currentState = nextState;
 	}
-	printf("elem stiva = %d\n",nr);
+	
 	for(b = a;b != NULL;b = b->nextSibling){
-		if(b->info && b->info->contents)
-		printf("%s\n",b->info->contents);
+		if(b->info->type)
+			printf("%s\n",b->info->type);
 		else
 			printf("tata\n");
+		for(TArb p = b->firstChild; p != NULL ; p = p->nextSibling){
+			if(p->info)
+				{if(p->info->type)
+					printf("%s ",p->info->type);
+				}
+			else printf("nu ");
+			if(p->info->style){
+			TAttr px = p->info->style;
+			for(;px != NULL;px = px->next)
+			printf("%s %s ",px->name,px->value);
+			}	
+	
+		}
 	}
-	for(b = a->firstChild; b != NULL ; b = b->nextSibling){
-		if(b->info->contents && b->info->type)
-		printf("<%s>%s</%s>",b->info->type,b->info->contents,b->info->type);
-		else printf("nu ");
-	}
-
+	
 	return 0;
 }
