@@ -136,10 +136,25 @@ void RSD(TArb root,int *taburi)
 
 	}
 }
-
+//cautarea se face pe nivele,adica parcurg in latime
+int cautaID(TArb root,char *id,TArb *frate)
+{
+	if(!root)
+		return 0;
+	if(root->info->id){
+	if(!strcmp(root->info->id,id)){
+		//printf("%s\n",root->info->id);
+		*frate = root;
+		return 1;
+	}
+	}
+	for(TArb p = root->firstChild; p != NULL ;p = p->nextSibling)
+		cautaID(p,id,frate);
+	return 0;
+}
 int main(int argc, char **argv)
 {
-	FILE *in = fopen("colorbars-big.html","r");
+	FILE *in = fopen("simple.html","r");
 	if(!in)
 		return 1;
 	char c = ' ';
@@ -334,6 +349,101 @@ int main(int argc, char **argv)
 	//adaugare id prin parcurgere in latime
 	bfsID(a);
 	int taburi = 0;
+	FILE *comenzi = fopen("/home/bdi/SD/hw3HTML/_test/commands/commands-simple-1.in","r");
+	int linii;
+	if(!comenzi)
+		return 1;
+	fscanf(comenzi,"%d",&linii);
+	for(int i = 1; i <= linii+1 ;i++){
+		char *cmd = calloc(200,sizeof(char)); // lungimea unei comenzi citite din fisier
+		fgets(cmd,200,comenzi);
+		if(strlen(cmd) > 1){
+		cmd[strlen(cmd)-1] = '\0';
+		char *p = strtok(cmd," ");
+		if(!strcmp(p,"add")){
+			//nu stiu daca se garanteaza corectitudinea comenzilor
+			char *parinte = calloc(100,sizeof(char));
+	   		 p = strtok(NULL," ");
+			strcpy(parinte,p);
+			char *tagHTML =calloc(100,sizeof(char));
+			p = strtok(NULL," " );
+			strcpy(tagHTML,p);
+							
+			char *idParinte = calloc(30,sizeof(char));
+			p = strtok(parinte,"=");
+			p = strtok(NULL,"=");
+			strcpy(idParinte,p);
+			char *tag = calloc(100,sizeof(char));
+			p = strtok(tagHTML,"=");
+			p = strtok(NULL,"=");
+			char *tagtype = calloc(100,sizeof(char));
+			strcpy(tagtype,p);
+
+			p = strtok(tagtype,"\"");
+
+			TArb frate = NULL;
+			int rez = cautaID(a,idParinte,&frate);
+			if(frate)
+				{
+				TArb fiu = calloc(1,sizeof(TNodArb));
+				TParseState currentState = 1,nextState;
+				for(int j = 0; j < strlen(p); j++){
+					//printf("%d %d %c\n",currentState,nextState,p[j]);
+					nextState = Interpret(currentState,p[j]);
+					if(currentState == 1 && nextState == 2)
+						{	
+							if(!fiu->info)
+								fiu->info = calloc(1,sizeof(TNodInfo));
+							if(!fiu->info->contents)
+								fiu->info->contents = calloc(1000,sizeof(char));
+							fiu->info->contents[strlen(fiu->info->contents)] = p[j];
+						}
+					else if(currentState == 2 && nextState == 3){
+						fiu = calloc(1,sizeof(TNodArb));
+						if(!fiu->info)
+								fiu->info = calloc(1,sizeof(TNodInfo));
+							if(!fiu->info->type)
+								fiu->info->type = calloc(30,sizeof(char));
+							fiu->info->type[strlen(fiu->info->type)] = p[j];
+
+					}
+					else if(currentState == 3 && nextState == 3)
+						{
+							if(!fiu->info)
+								fiu->info = calloc(1,sizeof(TNodInfo));
+							if(!fiu->info->type)
+								fiu->info->type = calloc(30,sizeof(char));
+							fiu->info->type[strlen(fiu->info->type)] = p[j];
+						}
+					else if(currentState == 4 && nextState == 1){
+						TArb kid = NULL;
+						if(frate->firstChild == NULL)
+							frate->firstChild = fiu;
+						else{
+							for( kid = frate->firstChild; kid->nextSibling != NULL;kid = kid->nextSibling);
+							kid->nextSibling = fiu;
+							}
+
+							}
+					else if(currentState == 1 && nextState == 1)
+					{
+						if(!fiu->info)
+							fiu->info = calloc(1,sizeof(TNodInfo));
+						if(!fiu->info->contents)
+							fiu->info->contents = calloc(100,sizeof(char));
+							// adica < 
+						fiu->info->contents[strlen(fiu->info->contents)] = p[j]; //de ce ia la sf si <?
+					}
+					currentState = nextState;
+					}
+				
+				}
+				
+			}//endif add
+				
+				}//endif strlen
+
+	}
 	RSD(a,&taburi);//indentare
 	
 	return 0;
