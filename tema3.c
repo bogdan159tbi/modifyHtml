@@ -388,9 +388,9 @@ int main(int argc, char **argv)
 				TArb fiu = calloc(1,sizeof(TNodArb));
 				TParseState currentState = 1,nextState;
 				for(int j = 0; j < strlen(p); j++){
-					//printf("%d %d %c\n",currentState,nextState,p[j]);
 					nextState = Interpret(currentState,p[j]);
-					if(currentState == 1 && nextState == 2)
+					printf("%d %d %c\n",currentState,nextState,p[j]);				
+					if(currentState == 1 && nextState == 1) // nu tre 1 si 2
 						{	
 							if(!fiu->info)
 								fiu->info = calloc(1,sizeof(TNodInfo));
@@ -425,15 +425,7 @@ int main(int argc, char **argv)
 							}
 
 							}
-					else if(currentState == 1 && nextState == 1)
-					{
-						if(!fiu->info)
-							fiu->info = calloc(1,sizeof(TNodInfo));
-						if(!fiu->info->contents)
-							fiu->info->contents = calloc(100,sizeof(char));
-							// adica < 
-						fiu->info->contents[strlen(fiu->info->contents)] = p[j]; //de ce ia la sf si <?
-					}
+
 					currentState = nextState;
 					}
 				
