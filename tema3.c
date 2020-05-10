@@ -1,5 +1,5 @@
 #include "lib.h"
-#define MAX_ATTR 10
+#define MAX_ATTR 1000
 
 char **attrs(char *value,int *elem)
 {	
@@ -10,7 +10,7 @@ char **attrs(char *value,int *elem)
 	char *p = strtok(value,";");
 	while(p)
 	{
-		atribute[*elem] = calloc(100,sizeof(char));
+		atribute[*elem] = calloc(1024,sizeof(char));
 		strcpy(atribute[*elem],p);
 		(*elem)++;
 		p = strtok(NULL,";");
@@ -19,7 +19,7 @@ char **attrs(char *value,int *elem)
 }
 void trim(char **value)// elimina spatii valoare atribut style
 {	int nr = 0;
-	char *aux = calloc(30,sizeof(char));
+	char *aux = calloc(1024,sizeof(char));
 	for(int i = 0; (*value)[i] != '\0';i++)
 		if((*value)[i] != ' ' && (*value)[i] != '\n')
 			aux[nr++] = (*value)[i];
@@ -100,15 +100,21 @@ void RSD(TArb root,int *taburi)
 		if(root->info->style){
 			printf(" style=\"");
 		TAttr st;
-		for( st = root->info->style; st->next != NULL; st = st->next)
-			printf("%s: %s; ",st->name,st->value);
-		printf("%s: %s;\" ",st->name,st->value);//la ultimul atribute nu exista spatiu intre ; si "  de la sfarsit
+		if(root->info->style->next){
+			for( st = root->info->style; st->next != NULL; st = st->next)
+				printf("%s: %s; ",st->name,st->value);
+			//printf(" ");
+			printf("%s: %s;\"",st->name,st->value);//la ultimul atribute nu exista spatiu intre ; si "  de la sfarsit
+					}
+		else
+			printf("%s: %s;\"",root->info->style->name,root->info->style->value);
 		}
+		
 		if(root->info->otherAttributes)
 		{	printf(" ");
 			TAttr attr;
 			for(attr = root->info->otherAttributes; attr->next != NULL; attr = attr->next)
-				printf("%s=\"%s\" ",attr->name,attr->value);
+				printf("%s=\"%s\"",attr->name,attr->value);
 			printf("%s=\"%s\"",attr->name,attr->value);
 		}
 		printf(">\n");
@@ -133,7 +139,7 @@ void RSD(TArb root,int *taburi)
 
 int main(int argc, char **argv)
 {
-	FILE *in = fopen("simple.html","r");
+	FILE *in = fopen("colorbars-big.html","r");
 	if(!in)
 		return 1;
 	char c = ' ';
@@ -142,7 +148,7 @@ int main(int argc, char **argv)
 		return 1;
 	b = a;
 	TParseState currentState = 1,nextState;
-	char *tmp = calloc(100,sizeof(char)),*value = calloc(100,sizeof(char));
+	char *tmp = calloc(1024,sizeof(char)),*value = calloc(1024,sizeof(char));
 	void *st = NULL;
 	int nr = 0;
 	while((c = fgetc(in)) != EOF)
@@ -224,7 +230,7 @@ int main(int argc, char **argv)
 			}
 		}
 		else if(currentState == 5 && nextState == 6){
-			tmp= calloc(100,sizeof(char));
+			tmp= calloc(1024,sizeof(char));
 			tmp[strlen(tmp)] = c;//atribut
 		}
 		else if(currentState == 6 && nextState == 6)
@@ -244,6 +250,7 @@ int main(int argc, char **argv)
 					TAttr p = scos->info->otherAttributes;
 					p->name = tmp;
 					p->value = value;
+					//printf("%s=%s\n",tmp,value);
 				}
 				else //adauga la sf1
 				{
@@ -260,13 +267,15 @@ int main(int argc, char **argv)
 			{
 				//separa termenii pt value si name si ; intre ele						
 				int elem;
+				//printf("value= %s\n",value);
 				char **sir = attrs(value,&elem);
 				char *nume,*val;
 				for(int i = 0;i < elem;i++){
-					nume = calloc(30,sizeof(char));
- 					val = calloc(30,sizeof(char));
+					nume = calloc(1024,sizeof(char));
+ 					val = calloc(1024,sizeof(char));
 					nameVal(&nume,&val,sir[i]);
 					trim(&val);
+					trim(&nume);
 					if(!scos->info->style)
 						{
 						scos->info->style = calloc(1,sizeof(TNodAttr));
@@ -286,7 +295,7 @@ int main(int argc, char **argv)
 			}
 			PushS(st,(void*)scos);
 			}
-			value = calloc(100,sizeof(char));//reinitializeaza
+			value = calloc(1024,sizeof(char));//reinitializeaza
 		}
 		else if(currentState == 8 && nextState == 8)
 			value[strlen(value)] = c;
@@ -326,5 +335,6 @@ int main(int argc, char **argv)
 	bfsID(a);
 	int taburi = 0;
 	RSD(a,&taburi);//indentare
+	
 	return 0;
 }
