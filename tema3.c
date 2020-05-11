@@ -97,6 +97,7 @@ void RSD(TArb root,int *taburi)
 			printf("\t");
 		if(root->info)
 		printf("<%s",root->info->type);
+
 		if(root->info->style){
 			printf(" style=\"");
 		TAttr st;
@@ -113,26 +114,39 @@ void RSD(TArb root,int *taburi)
 		if(root->info->otherAttributes)
 		{	printf(" ");
 			TAttr attr;
-			for(attr = root->info->otherAttributes; attr->next != NULL; attr = attr->next)
+			if(root->info->isSelfClosing == 0){
+				for(attr = root->info->otherAttributes; attr->next != NULL; attr = attr->next)
+					printf("%s=\"%s\"",attr->name,attr->value);
 				printf("%s=\"%s\"",attr->name,attr->value);
-			printf("%s=\"%s\"",attr->name,attr->value);
+					}
+			else
+			{
+				for(attr = root->info->otherAttributes; attr->next != NULL; attr = attr->next)
+					printf("%s=\"%s\" ",attr->name,attr->value);
+				printf("%s=\"%s\"",attr->name,attr->value);
+			}
 		}
-		printf(">\n");
+		if(root->info->isSelfClosing == 0){
+			printf(">\n");
 		//am afisat atributele la stil si celelalte atribute 
 		//acum urmeaza continut daca e dif de null
-		if(root->info->contents && strlen(root->info->contents) > 0){
-			for(int i = 0; i < (*taburi); i++)
+			if(root->info->contents && strlen(root->info->contents) > 0){
+				for(int i = 0; i < (*taburi); i++)
+					printf("\t");
 				printf("\t");
-			printf("\t");
-			printf("%s\n",root->info->contents);
+				printf("%s\n",root->info->contents);
+			}
 		}
 		(*taburi)++;
 		for(TArb p = root->firstChild; p != NULL ;p = p->nextSibling)
 			RSD(p,taburi);
 		(*taburi)--;
-		for(int i = 0; i < *taburi; i++)
-			printf("\t");
-		printf("</%s>\n",root->info->type);
+		if(root->info->isSelfClosing == 0){
+			for(int i = 0; i < *taburi; i++)
+				printf("\t");
+			printf("</%s>\n",root->info->type);
+		}
+		else printf("/>\n");
 
 	}
 }
@@ -150,6 +164,40 @@ int cautaID(TArb root,char *id,TArb *frate)
 	}
 	for(TArb p = root->firstChild; p != NULL ;p = p->nextSibling)
 		cautaID(p,id,frate);
+	return 0;
+}
+int cautaClass(TArb root,char *valueClass,TArb *tata)
+{
+	if(!root)
+		return 0;
+	if(root->info->otherAttributes)
+	{	
+		TAttr class;
+		for( class = root->info->otherAttributes; class != NULL ; class = class->next)
+			if(!strcmp(class->name,"class") && !strcmp(class->value,valueClass))
+				break;
+		if(class)
+		*tata = root;
+		
+	}	
+	for(TArb p = root->firstChild; p != NULL ;p = p->nextSibling)
+		cautaClass(p,valueClass,tata);
+	return 0;
+}
+
+int cautaTag(TArb root,char *type,TArb *tata)
+{
+	if(!root)
+		return 0;
+	if(root->info->type){
+	if(!strcmp(root->info->type,type)){
+		//printf("%s\n",root->info->id);
+		*tata = root;
+		return 1;
+	}
+	}
+	for(TArb p = root->firstChild; p != NULL ;p = p->nextSibling)
+		cautaTag(p,type,tata);
 	return 0;
 }
 
@@ -394,6 +442,7 @@ int main(int argc, char **argv)
 			int rez = PopS(st,tata);
 			if(rez)
 			{
+
 			if(!scos->info)	
 				scos->info = calloc(1,sizeof(TNodInfo));
 			if(!scos->info->type)
@@ -414,7 +463,8 @@ int main(int argc, char **argv)
 				}
 			}
 			else  a = scos;
-			PushS(st,(void*)scos);
+
+			PushS(st,(void*)tata);
 		}
 		currentState = nextState;
 	}
@@ -434,13 +484,13 @@ int main(int argc, char **argv)
 
 		if(strstr(cmd,"add"))
 			addTag(a,cmd);//nu stiu daca se garanteaza corectitudinea comenzilor	
-			
 
 				
 		}//endif strlen
 
 	}
 	RSD(a,&taburi);//indentare
-	
+	TArb pla;
+	//cautaClass(a,"class1",&pla);
 	return 0;
 }
