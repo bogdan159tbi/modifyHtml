@@ -176,13 +176,38 @@ int cautaClass(TArb root,char *valueClass,TArb *tata)
 		for( class = root->info->otherAttributes; class != NULL ; class = class->next)
 			if(!strcmp(class->name,"class") && !strcmp(class->value,valueClass))
 				break;
-		if(class)
+		if(class && !(*tata)){
 		*tata = root;
-		
+		return 1;
+		}
 	}	
 	for(TArb p = root->firstChild; p != NULL ;p = p->nextSibling)
 		cautaClass(p,valueClass,tata);
 	return 0;
+}
+//functie care returneaza tag cu clasa ceruta si modifica id-urile celorlalte
+int changeClass(TArb root,char *valueClass,TArb *tata)
+{
+	if(!root)
+		return 0;
+	if(root->info->otherAttributes)
+	{	
+		TAttr class;
+		for( class = root->info->otherAttributes; class != NULL ; class = class->next)
+			if(!strcmp(class->name,"class") && !strcmp(class->value,valueClass))
+				break;
+		if(class && !(*tata)){
+		*tata = root;
+		return 1;
+		}
+	}	
+	TArb p;
+	for( p = root->firstChild; p != NULL ;p = p->nextSibling){
+		if(!(*tata))
+		 changeClass(p,valueClass,tata);
+	}
+	return 0;
+
 }
 
 int cautaTag(TArb root,char *type,TArb *tata)
@@ -200,6 +225,7 @@ int cautaTag(TArb root,char *type,TArb *tata)
 		cautaTag(p,type,tata);
 	return 0;
 }
+
 
 void addTag(TArb a,char *cmd)
 {
@@ -272,13 +298,111 @@ void addTag(TArb a,char *cmd)
 				}
 				
 }
+
+void delParentTree(TArb root)
+{
+	if(!root)
+		return;
+	TArb child;
+	for(child = root->firstChild; child != NULL; child = child->nextSibling)
+		{delParentTree(child);
+		 //elibereaza nod
+		 
+		}
+}
+int delClass(TArb root,char *class)
+{
+	TArb tag = NULL; 
+	int primul = 0;
+	changeClass(root,class,&tag);
+	if(tag->info->id[strlen(tag->info->id)-1] == '1')
+		{
+			TArb tata = NULL;
+			char *id = malloc(10);
+			strcpy(id,tag->info->id);
+			id[strlen(id) - 2] = '\0';
+			cautaID(root,id,&tata);
+			tata->firstChild = tag->nextSibling;
+			return 1;
+		}
+	else if(!tag)
+		return 0;//nu exista ,tre sa dau si fprintf
+	else
+		{
+		//delParentTree(tata);
+		TArb bro = NULL;
+		char *id = malloc(10);
+		strcpy(id,tag->info->id);
+		id[strlen(id) - 1] = id[strlen(id) -1] - 1;
+		cautaID(root,id,&bro);
+		//elibereaza ce tre sters
+		bro->nextSibling = tag->nextSibling;//refac legatura intre anterior si urm la frati
+		return 1;
+		}
+}
+int delTag(TArb root,char *type)
+{
+	TArb tag = NULL;
+	int first = 0;
+	cautaTag(root,type,&tag);
+	if(tag){
+		if(tag->info->id && tag->info->id[strlen(tag->info->id)-1] == '1')
+			{
+				TArb tata = NULL;
+				char *id = malloc(100);
+				strcpy(id,tag->info->id);
+				id[strlen(id) - 2] = '\0';
+				cautaID(root,id,&tata);
+				tata->firstChild = tag->nextSibling;
+				delTag(root,type);
+				bfsID(tata);
+				return 1;
+			}
+		else
+			{
+			//delParentTree(tata);
+			TArb bro = NULL;
+			char *id = malloc(100);
+			strcpy(id,tag->info->id);
+			id[strlen(id) - 1] = id[strlen(id) -1] - 1;
+			cautaID(root,id,&bro);
+			//elibereaza ce tre sters
+			bro->nextSibling = tag->nextSibling;//refac legatura intre anterior si urm la frati
+			delTag(root,type);
+			bfsID(bro);
+			return 1;
+			}
+	}
+	else return 0;//nu exista ,tre sa dau si fprintf
+}
+void deleteID(TArb dad,char *id)
+{
+	if(id[strlen(id)- 1] == '1' ) //iau firstChild
+	{	
+		TArb child;
+		child = dad->firstChild;
+		dad->firstChild = child->nextSibling;		
+		//free(child);	
+	}
+	else if(id[strlen(id)- 1] != '1' )
+	{
+		TArb kids,ant = NULL;
+		for(kids = dad->firstChild ; kids != NULL ; ant = kids,kids = kids->nextSibling)
+		if(!strcmp(kids->info->id,id))
+			break;
+		if(kids)
+			ant->nextSibling = kids->nextSibling;
+		//free(kids);	
+	}
+
+}
 int main(int argc, char **argv)
 {
 	FILE *in = fopen("simple.html","r");
 	if(!in)
 		return 1;
 	char c = ' ';
-	TArb a = calloc(1,sizeof(TNodArb)),b,child,new;
+	TArb a = calloc(1,sizeof(TNodArb)),child,b,new;
 	if(!a)
 		return 1;
 	b = a;
@@ -471,7 +595,7 @@ int main(int argc, char **argv)
 	//adaugare id prin parcurgere in latime
 	bfsID(a);
 	int taburi = 0;
-	FILE *comenzi = fopen("/home/bdi/SD/hw3HTML/_test/commands/commands-simple-1.in","r");
+	FILE *comenzi = fopen("/home/bdi/SD/hw3HTML/_test/commands/commands-simple-8.in","r");
 	int linii;
 	if(!comenzi)
 		return 1;
@@ -479,18 +603,113 @@ int main(int argc, char **argv)
 	for(int i = 1; i <= linii+1 ;i++){
 		char *cmd = calloc(200,sizeof(char)); // lungimea unei comenzi citite din fisier
 		fgets(cmd,200,comenzi);
+
 		if(strlen(cmd) > 1){
 			cmd[strlen(cmd)-1] = '\0';
-
-		if(strstr(cmd,"add"))
+		if(strstr(cmd,"add")){
 			addTag(a,cmd);//nu stiu daca se garanteaza corectitudinea comenzilor	
+			bfsID(a);
+		}
+		else if(strstr(cmd,"deleteRecursively"))
+		{	
+			char *selector = cmd + strlen("deleteRecurively") + 2 + strlen("selector=\"");//ca sa obtin selector direct
+			selector[strlen(selector) - 1] = '\0'; // ca sa elimin " de la sfarsit
+			int rez = 0;
+			if(selector[0] == '.'){// cautam class la atribute
+				rez = delClass(a,selector+1);
+				if(rez)
+				bfsID(a); 
+			}
+			else if(!strchr(selector,'>') && !strchr(selector,' ') && !strchr(selector,'.') && !strchr(selector,'#')) {// ca sa iau tag-ul
+				rez = delTag(a,selector);
+				//if(rez)
+				//	bfsID(a); 
+			}
+			else if(strchr(selector,'>')) // cauta tag parinte si copil: tata>copil
+			{
+				char *tok = strtok(selector,">");
+				char *dadtype = malloc(20),*childtype = malloc(20);
+				strcpy(dadtype,tok);
+				tok = strtok(NULL,">");
+				strcpy(childtype,tok);
+				//sa verific daca am scos bine tok
+				TArb dad = NULL;
+				cautaTag(a,dadtype,&dad);
+				if(dad)
+				{
+					TArb kids,ant = NULL;
+					for(kids = dad->firstChild ; kids != NULL ; kids = kids->nextSibling){
+						if(!strcmp(kids->info->type,childtype))
+						{
+							if(!ant)
+								dad->firstChild = kids->nextSibling;
+							else
+								ant->nextSibling = kids->nextSibling;
+							TArb aux = kids;
+							//free aux
+							rez = 1;
+						}
+						else
+							ant = kids;
+					}
+				}
+				bfsID(dad);
+			}			
+			else if(strchr(selector+1,' '))
+			{
+				char *dadtype, *childtype;
+				char *tok = strtok(selector," ");
+				dadtype = tok;
+				tok = strtok(NULL," ");
+				childtype = tok;
+				TArb dad = NULL,son = NULL;
+				cautaTag(a,dadtype,&dad);
+				if(dad) // exista nodul tata in arbroe si cauta subarbore cu radacina tata
+				{	
+					cautaTag(dad,childtype,&son);
+					if(son)//daca am gasit tre sa l sterg si sa refac legaturile
+					{
+						char *idson = malloc(10);
+						strcpy(idson,son->info->id);
+						char *iddad = malloc(10);
+						strcpy(iddad,idson);
+						iddad[strlen(iddad) -2 ] = '\0';
+						TArb parent = NULL;
+						cautaID(dad,iddad,&parent);
+						deleteID(parent,idson);
+						bfsID(parent);
+					}
+				}
 
-				
-		}//endif strlen
+			}
+			else if(selector[0] == '#') //foloseste un fel de heap sort
+			{	
+				char *id = selector + 1;
+				char *parentID = malloc(10);
+				strcpy(parentID,id);
+				parentID[ strlen(id) -2 ] = '\0';
+				TArb dad = NULL,child = NULL;
+				cautaID(a,parentID,&dad);
+				if(dad)
+					deleteID(dad,id);
+				bfsID(dad);
+			}
+			
+		}
+		else if(strstr(cmd,"appendStyle"))
+			{
+			//	printf("append\n");
+			}
+		else if(strstr(cmd,"overrideStyle"))
+			{
+				//printf("override\n");
+		
+			}
+		}
 
 	}
 	RSD(a,&taburi);//indentare
-	TArb pla;
 	//cautaClass(a,"class1",&pla);
+
 	return 0;
 }
