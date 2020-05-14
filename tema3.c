@@ -531,6 +531,75 @@ int overrideStyleTAG(TArb root,char *type,char **style,int elem)
 		overrideStyleTAG(p,type,style,elem);
 	return 0;
 }
+void appendStyle(TArb r,char **style,int elem)
+{
+	TAttr st = r->info->style,ant;
+	int i;
+	char *nume,*val;
+	for(i = 0; i < elem; i++)
+	{
+		nume = malloc(20);
+		val = malloc(20);
+		nameVal(&nume,&val,style[i]); // dupa care fac trim pe ele
+		trim(&nume);
+		trim(&val);
+		int ok = 0;
+		for(ant = NULL; st != NULL ; ant = st,st = st->next)
+			if(!strcmp(st->name,nume))
+			{
+				ok = 1;
+				st->value = val;
+			}
+		if(!ok && ant){
+			ant->next = calloc(1,sizeof(TNodAttr));
+			ant->next->name = nume;
+			ant->next->value = val;
+		}
+	}
+}
+void bfsAppendTag(TArb root,char **styleValues,int elem,char *type)
+{
+void *queue = InitQ(sizeof(TNodArb));
+IntrQ(queue,(void*)root);
+
+	while(!EMPTYQ(queue))
+	{
+		TArb scos = calloc(1,sizeof(TNodArb));// TRE ELIBERAT
+		ExtrQ(queue,scos);
+		TArb p;
+		if(!strcmp(scos->info->type,type))
+			appendStyle(scos,styleValues,elem);//overrideStyle(scos,styleValues,elem);
+		
+		for(p = scos->firstChild; p != NULL ; p = p->nextSibling){
+			if(!strcmp(p->info->type,type))
+				appendStyle(p,styleValues,elem);//overrideStyle(p,styleValues,elem);
+			IntrQ(queue,(void*)p);
+			}
+	}
+}
+void bfsAppendID(TArb root,char **styleValues,int elem,char *id)
+{
+void *queue = InitQ(sizeof(TNodArb));
+IntrQ(queue,(void*)root);
+
+	while(!EMPTYQ(queue))
+	{
+		TArb scos = calloc(1,sizeof(TNodArb));// TRE ELIBERAT
+		ExtrQ(queue,scos);
+		TArb p;
+		if(!strcmp(scos->info->id,id))
+			appendStyle(scos,styleValues,elem);//overrideStyle(scos,styleValues,elem);
+		
+		for(p = scos->firstChild; p != NULL ; p = p->nextSibling){
+			if(!strcmp(p->info->id,id))
+				appendStyle(p,styleValues,elem);//overrideStyle(p,styleValues,elem);
+			IntrQ(queue,(void*)p);
+			}
+	}
+}
+
+
+
 void findID(TArb root,char **styleValues,int elem,char *id)
 {
 void *queue = InitQ(sizeof(TNodArb));
@@ -561,6 +630,27 @@ int exista(TArb root,char *class)
 			return 1;
 	}
 	return 0;
+}
+
+void bfsAppendClass(TArb root,char **styleValues,int elem,char *class)
+{void *queue = InitQ(sizeof(TNodArb));
+IntrQ(queue,(void*)root);
+
+	while(!EMPTYQ(queue))
+	{
+		TArb scos = calloc(1,sizeof(TNodArb));// TRE ELIBERAT
+		ExtrQ(queue,scos);
+		TArb p;
+		if(exista(root,class))
+			appendStyle(scos,styleValues,elem);
+	
+		for(p = scos->firstChild; p != NULL ; p = p->nextSibling){
+			if(exista(p,class))
+				appendStyle(p,styleValues,elem);
+			IntrQ(queue,(void*)p);
+		}
+	}
+	
 }
 void bfsClass(TArb root,char **styleValues,int elem,char *class)
 {
@@ -897,7 +987,96 @@ int main(int argc, char **argv)
 		}
 		else if(strstr(cmd,"appendStyle"))
 			{
+				char *rest = cmd + strlen("appendStyle") + strlen("selector") + 3; //selector=" sunt avansate 
+				char *selector = malloc(20);
+				int exista = spatii(rest);
+				char *select = NULL;
+				char *style;
+				if(exista == 2){
+					char *rest2 = malloc(50);
+					strcpy(rest2,rest);
+					select = strtok(rest,"\"");
+					
+					rest2 = rest2+strlen(select) + 2 + strlen("style=\"");
+					rest2[strlen(rest2)-1] = '\0';
+					style = rest2;
+				}
+				else{
+				char *tok = strtok(rest," ");
+				strcpy(selector,tok);
+				selector[strlen(selector) -1 ] = '\0';
+				tok = strtok(NULL," ");
+				style = tok + strlen("style=\"");
 
+				style[strlen(style) -1 ] = '\0';
+				}//am obtinut atributele pe care trebuie sa le foloses pt style
+				if(!select)
+				{
+					if(strchr(selector,'>')) // cauta tag parinte si copil: tata>copil
+					{	
+						char *tok = strtok(selector,">");
+						char *dadtype = malloc(20),*childtype = malloc(20);
+						strcpy(dadtype,tok);
+						tok = strtok(NULL,">");
+						strcpy(childtype,tok);
+						//sa verific daca am scos bine tok
+						TArb dad = NULL;
+						cautaTag(a,dadtype,&dad);
+						if(dad)
+						{
+							TArb kids;
+							for(kids = dad->firstChild ; kids != NULL ; kids = kids->nextSibling){
+								if(!strcmp(kids->info->type,childtype))
+								{
+									int elem = 0;
+									char **atribute = attrs(style,&elem);
+									appendStyle(kids,atribute,elem);
+								}	
+							}
+						}
+					}	
+					else if(!strchr(selector,'>') && !strchr(selector,' ') && !strchr(selector,'.') && !strchr(selector,'#')) 
+						{
+							int elem = 0;
+							char **atribute = attrs(style,&elem);
+							bfsAppendTag(a,atribute,elem,selector);
+							
+						}
+					else if(selector[0] == '.')//cautam clasa data de selector
+					{
+						int elem = 0;
+						char **atribute = attrs(style,&elem);
+						bfsAppendClass(a,atribute,elem,selector + 1);// ca sa trec peste punct
+					}
+					else if(selector[0] == '#') 
+					{
+						int elem = 0;
+						char **atribute = attrs(style,&elem);
+						char *id = selector + 1;
+						char *parentID = malloc(10);
+						strcpy(parentID,id);
+						parentID[ strlen(id) -2 ] = '\0';
+						TArb dad = NULL,child = NULL;
+						cautaID(a,parentID,&dad);
+						if(dad)
+							bfsAppendID(dad,atribute,elem,id);//findID(dad,atribute,elem,id);	
+					}
+				}
+				else
+				{
+					int elem = 0;
+					char **atribute = attrs(style,&elem);
+					char *dadtype, *childtype;
+					char *tok = strtok(select," ");
+					dadtype = tok;
+					tok = strtok(NULL," ");
+					childtype = tok;
+					TArb dad = NULL,son = NULL;
+					cautaTag(a,dadtype,&dad);
+					if(dad) // exista nodul tata in arbrore si cauta subarbore cu radacina tata
+						bfsAppendTag(dad,atribute,elem,childtype);//nu stiu daca ia toate tag-urile
+					
+				}
 			}
 		else if(strstr(cmd,"overrideStyle"))
 			{
@@ -997,6 +1176,7 @@ int main(int argc, char **argv)
 
 	}
 	RSD(a,&taburi);//indentare
+	//mai am de facut citirea din param liniei de comanda
 	
 
 	return 0;
