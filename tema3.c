@@ -1,6 +1,10 @@
 #include "lib.h"
 #define MAX_ATTR 1000
 
+
+//verifica pentru fiecare selector daca exista unul
+//de tipul celui tag tag
+//si pentru comanda ca sa verifice spatiile
 int doarSpatii(char *content)
 {
 	int i;
@@ -9,6 +13,8 @@ int doarSpatii(char *content)
 			return 0;
 	return 1;
 }
+//returneaza un vector de elem pt atributele style
+// si trimite prin referinta nr de elem pt style
 char **attrs(char *value,int *elem)
 {	
 	*elem = 0;
@@ -28,6 +34,7 @@ char **attrs(char *value,int *elem)
 	}
 	return atribute;
 }
+//functie care elimina spatiile care nu s necesare
 void trim(char **value)// elimina spatii valoare atribut style
 {	int nr = 0;
 	char *aux = calloc(1024,sizeof(char));
@@ -38,6 +45,7 @@ void trim(char **value)// elimina spatii valoare atribut style
 	strcpy(*value,aux);
 	free(aux);
 }
+//desparte numele de valoarea atributului
 void nameVal(char **name,char **val,char *eticheta)
 {
  char *p,*copie = malloc(100);
@@ -50,6 +58,7 @@ void nameVal(char **name,char **val,char *eticheta)
  	strcpy(*val,p);
 free(copie);
 }
+//functie care adauga un id valid
 void adaugaID(char **id)
 {	
 	char *copie = calloc(20,sizeof(char));
@@ -66,6 +75,8 @@ void adaugaID(char **id)
 	free(copie);
 }
 //parcurgere in latime arbore
+//si reface toate idurile dupa fiecare append/delete/override
+
 void bfsID(TArb root)
 {
 	void *queue = InitQ(sizeof(TNodArb));
@@ -96,7 +107,8 @@ void bfsID(TArb root)
 	}
 }
 
-//afisare cu indentare
+//afisare cod html la functie de apelare pentru indentare
+//se face prin parcurgere adancime
 void RSD(TArb root,int *taburi,FILE *out)
 {
 	if(!root)
@@ -185,6 +197,10 @@ int cautaID(TArb root,char *id,TArb *frate)
 		cautaID(p,id,frate);
 	return 0;
 }
+
+//cauta clasa trimisa ca parametru 
+//cautarea se face prin latime
+//si trimite prin referinta tag ul gasit
 int cautaClass(TArb root,char *valueClass,TArb *tata)
 {
 	if(!root)
@@ -229,6 +245,7 @@ int changeClass(TArb root,char *valueClass,TArb *tata)
 	return 0;
 
 }
+//functie care cauta in atribute daca o anumita clasa exista
 int findClass(TArb r,char *class)
 {
 	TAttr attr = r->info->otherAttributes;
@@ -236,6 +253,8 @@ int findClass(TArb r,char *class)
 		if(!strcmp(class,attr->value) && !strcmp(attr->name,"class"))
 			return 1;
 }
+//functie care cauta in atribute daca un anumit tag  exista
+// cautarea se face tot pe latime
 int cautaTag(TArb root,char *type,TArb *tata)
 {
 	if(!root)
@@ -253,7 +272,8 @@ int cautaTag(TArb root,char *type,TArb *tata)
 		cautaTag(p,type,tata);
 	return 0;
 }
-
+//returneaza vector de tag uri parinte
+// in functie de tag ul copil cautat
 TArb *parents(TArb root,char *type,int *elem,TArb *noduri)
 {
 	int i;
@@ -293,6 +313,7 @@ TArb *roots(TArb root,char *type,int *elem,TArb *noduri)
 	return noduri;
 }
 
+//functie care adauga un tag nou pentru parsarea continutului paginii initiale html
 int addTag(TArb a,char *cmd,FILE *out)
 {
 	char *p = strtok(cmd," ");
@@ -518,6 +539,9 @@ void deleteID(TArb dad,char *id)
 
 }
 
+//functie care adauga un atribut pentru inceputul de lista new
+//se face prin parcurgerea elementelor pana la sf listei
+//daca exista deja nume ,doar se modifica value cu val
 void addAttr(TAttr *new,char *nume,char *val)
 {
 	if(!(*new))
@@ -573,6 +597,7 @@ void overrideStyle(TArb root,char **style,int elem)
 		addAttr(&(root->info->style),nume,val);
 	}
 }
+//se parcurge prin adancime si modifica toate tag urile cu numele cerut gasite
 
 void bfsTAG(TArb root,char **styleValues,int elem,char *tagtype)
 {
@@ -595,6 +620,8 @@ while(!EMPTYQ(queue))
 }
 
 }
+
+//parcurge in adancime pentru a modifica fiecare tag ce indeplineste cerinta ceruta
 int overrideStyleTAG(TArb root,char *type,char **style,int elem)
 {
 	if(!root)
@@ -609,6 +636,7 @@ int overrideStyleTAG(TArb root,char *type,char **style,int elem)
 		overrideStyleTAG(p,type,style,elem);
 	return 0;
 }
+//functie care adauga tag ului respectiv atributele style trimise ca parametru
 void appendStyle(TArb r,char **style,int elem)
 {
 	TAttr st = r->info->style,ant;
@@ -642,6 +670,8 @@ void appendStyle(TArb r,char **style,int elem)
 		}
 	}
 }
+//parcurge adancime si adauga la fiecare tag cu numele respectiv gasit valorile din styleValues cu nr de elem = elem
+//foloseste structura generica pt coada
 void bfsAppendTag(TArb root,char **styleValues,int elem,char *type)
 {
 void *queue = InitQ(sizeof(TNodArb));
@@ -663,6 +693,7 @@ IntrQ(queue,(void*)root);
 			}
 	}
 }
+//parcurge latime si adauga la fiecare tag cu id respectiv gasit valorile din styleValues cu nr de elem = elem
 void bfsAppendID(TArb root,char **styleValues,int elem,char *id)
 {
 void *queue = InitQ(sizeof(TNodArb));
@@ -685,7 +716,8 @@ IntrQ(queue,(void*)root);
 }
 
 
-
+//functie care cauta daca exista id trimis ca parametru 
+//in caz afirmativ modifica valorile din atribute cu elem din vectorul styleValues
 void findID(TArb root,char **styleValues,int elem,char *id)
 {
 void *queue = InitQ(sizeof(TNodArb));
@@ -707,7 +739,7 @@ while(!EMPTYQ(queue))
 		}
 }
 }
-
+//cauta daca exista un atribut ce are valoarea egala cu class
 int exista(TArb root,char *class)
 {
 	for(TAttr p = root->info->otherAttributes; p != NULL; p = p->next)
@@ -718,6 +750,7 @@ int exista(TArb root,char *class)
 	return 0;
 }
 
+//parcurge latime si adauga la fiecare tag cu clasa respectiva gasita valorile din styleValues cu nr de elem = elem
 int bfsAppendClass(TArb root,char **styleValues,int elem,char *class)
 {void *queue = InitQ(sizeof(TNodArb));
 IntrQ(queue,(void*)root);
@@ -742,6 +775,8 @@ int ok = 0;
 	}
 	return (ok == 1);
 }
+
+//parcurge latime si modifica toate atributele care au clasa respectiva
 void bfsClass(TArb root,char **styleValues,int elem,char *class)
 {
 void *queue = InitQ(sizeof(TNodArb));
