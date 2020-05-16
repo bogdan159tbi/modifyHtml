@@ -1,6 +1,13 @@
 #include "lib.h"
 #define MAX_ATTR 1000
 
+int doarSpatii(char *content)
+{
+	for(int i = 0; i < strlen(content); i++)
+		if(content[i] != ' ')
+			return 0;
+	return 1;
+}
 char **attrs(char *value,int *elem)
 {	
 	*elem = 0;
@@ -10,9 +17,12 @@ char **attrs(char *value,int *elem)
 	char *p = strtok(value,";");
 	while(p)
 	{
+		if(!doarSpatii(p))
+		{
 		atribute[*elem] = calloc(1024,sizeof(char));
 		strcpy(atribute[*elem],p);
 		(*elem)++;
+		}
 		p = strtok(NULL,";");
 	}
 	return atribute;
@@ -83,76 +93,72 @@ void bfsID(TArb root)
 		}
 	}
 }
-int doarSpatii(char *content)
-{
-	for(int i = 0; i < strlen(content); i++)
-		if(content[i] != ' ')
-			return 0;
-	return 1;
-}
+
 //afisare cu indentare
-void RSD(TArb root,int *taburi)
+void RSD(TArb root,int *taburi,FILE *out)
 {
 	if(!root)
 		return;
 	else
 	{	for(int i = 0; i < *taburi; i++)
-			printf("\t");
+			fprintf(out,"\t");
 		if(root->info)
-		printf("<%s",root->info->type);
+			fprintf(out,"<%s",root->info->type);
 
-		if(root->info->style){
-			printf(" style=\"");
+		if(root->info->style)
+		{
+		fprintf(out," style=\"");
 		TAttr st;
-			if(root->info->style->next){
-				for( st = root->info->style; st->next != NULL; st = st->next){
-					if(st->name && st->value)
-					printf("%s: %s; ",st->name,st->value);
-				}
-			//printf(" ");
+		if(root->info->style->next)
+		{
+			for( st = root->info->style; st->next != NULL; st = st->next)
+			{
 				if(st->name && st->value)
-					printf("%s: %s;\"",st->name,st->value);//la ultimul atribute nu exista spatiu intre ; si "  de la sfarsit
-					}
+					fprintf(out,"%s: %s; ",st->name,st->value);
+			}
+			if(st->name && st->value)
+				fprintf(out,"%s: %s;\"",st->name,st->value);//la ultimul atribute nu exista spatiu intre ; si "  de la sfarsit
+		}
 		else
-			printf("%s: %s;\"",root->info->style->name,root->info->style->value);
+			fprintf(out,"%s: %s;\"",root->info->style->name,root->info->style->value);
 		}
 		
 		if(root->info->otherAttributes)
-		{	printf(" ");
+		{	fprintf(out," ");
 			TAttr attr;
 			if(root->info->isSelfClosing == 0){
 				for(attr = root->info->otherAttributes; attr->next != NULL; attr = attr->next)
-					printf("%s=\"%s\"",attr->name,attr->value);
-				printf("%s=\"%s\"",attr->name,attr->value);
+					fprintf(out,"%s=\"%s\"",attr->name,attr->value);
+				fprintf(out,"%s=\"%s\"",attr->name,attr->value);
 					}
 			else
 			{
 				for(attr = root->info->otherAttributes; attr->next != NULL; attr = attr->next)
-					printf("%s=\"%s\" ",attr->name,attr->value);
-				printf("%s=\"%s\"",attr->name,attr->value);
+					fprintf(out,"%s=\"%s\" ",attr->name,attr->value);
+				fprintf(out,"%s=\"%s\"",attr->name,attr->value);
 			}
 		}
 		if(root->info->isSelfClosing == 0){
-			printf(">\n");
+			fprintf(out,">\n");
 		//am afisat atributele la stil si celelalte atribute 
 		//acum urmeaza continut daca e dif de null
 			if(root->info->contents && strlen(root->info->contents) > 0){
 				for(int i = 0; i < (*taburi); i++)
-					printf("\t");
-				printf("\t");
-				printf("%s\n",root->info->contents);
+					fprintf(out,"\t");
+				fprintf(out,"\t");
+				fprintf(out,"%s\n",root->info->contents);
 			}
 		}
 		(*taburi)++;
 		for(TArb p = root->firstChild; p != NULL ;p = p->nextSibling)
-			RSD(p,taburi);
+			RSD(p,taburi,out);
 		(*taburi)--;
 		if(root->info->isSelfClosing == 0){
 			for(int i = 0; i < *taburi; i++)
-				printf("\t");
-			printf("</%s>\n",root->info->type);
+				fprintf(out,"\t");
+			fprintf(out,"</%s>\n",root->info->type);
 		}
-		else printf("/>\n");
+		else fprintf(out,"/>\n");
 
 	}
 }
@@ -163,7 +169,7 @@ int cautaID(TArb root,char *id,TArb *frate)
 		return 0;
 	if(root->info->id){
 	if(!strcmp(root->info->id,id)){
-		//printf("%s\n",root->info->id);
+		//fprintf("%s\n",root->info->id);
 		*frate = root;
 		return 1;
 	}
@@ -215,14 +221,21 @@ int changeClass(TArb root,char *valueClass,TArb *tata)
 	return 0;
 
 }
-
+int findClass(TArb r,char *class)
+{
+	TAttr attr = r->info->otherAttributes;
+	for(; attr ; attr = attr->next)
+		if(!strcmp(class,attr->value) && !strcmp(attr->name,"class"))
+			return 1;
+}
 int cautaTag(TArb root,char *type,TArb *tata)
 {
 	if(!root)
 		return 0;
+
 	if(root->info->type){
-	if(!strcmp(root->info->type,type)){
-		//printf("%s\n",root->info->id);
+	if(!strcmp(root->info->type,type) && !(*tata)){
+		//fprintf("%s\n",root->info->id);
 		*tata = root;
 		return 1;
 	}
@@ -232,7 +245,44 @@ int cautaTag(TArb root,char *type,TArb *tata)
 	return 0;
 }
 
-void addTag(TArb a,char *cmd)
+TArb *parents(TArb root,char *type,int *elem,TArb *noduri)
+{
+	int i;
+	if(!root)
+		return NULL;
+	if(root->info->type && !strcmp(root->info->type,type))
+	{	if(!noduri[*elem])
+			noduri[*elem]  = calloc(1,sizeof(TNodArb));
+		noduri[*elem] = root; 
+		(*elem)++;
+	}
+	for(TArb p = root->firstChild; p != NULL ;p = p->nextSibling)
+		parents(p,type,elem,noduri);
+	return noduri;
+}
+//functie care retine parintii tuturor tag-urile cerute de selector
+// de ex daca se cere la selector tag p sters ,retin toti parintii tuturor tag-urilor p
+TArb *roots(TArb root,char *type,int *elem,TArb *noduri)
+{
+	int i;
+	if(!root)
+		return NULL;
+	TArb fiu = NULL;
+	cautaTag(root,type,&fiu);
+	if(fiu)
+	{
+		if(!noduri[*elem])
+			noduri[*elem]  = calloc(1,sizeof(TNodArb));
+		noduri[*elem] = root; 
+		(*elem)++;
+	}
+	for(TArb p = root->firstChild; p != NULL ;p = p->nextSibling)
+		roots(p,type,elem,noduri);
+	
+	return noduri;
+}
+
+int addTag(TArb a,char *cmd,FILE *out)
 {
 	char *p = strtok(cmd," ");
 		char *parinte = calloc(100,sizeof(char));
@@ -301,6 +351,8 @@ void addTag(TArb a,char *cmd)
 					}
 				
 				}
+		else fprintf(out,"Add tag failed: node with id %s not found!\n",idParinte);
+		return rez;
 				
 }
 
@@ -379,7 +431,7 @@ int delClass(TArb root,char *class)
 			return 1;
 		}
 	else if(!tag)
-		return 0;//nu exista ,tre sa dau si fprintf
+		return 0;//nu exista ,tre sa dau si ffprintf
 	else
 		{
 		//delParentTree(tata);
@@ -426,7 +478,7 @@ int delTag(TArb root,char *type)
 			return 1;
 			}
 	}
-	else return 0;//nu exista ,tre sa dau si fprintf
+	else return 0;//nu exista ,tre sa dau si ffprintf
 }
 void deleteID(TArb dad,char *id)
 {
@@ -462,11 +514,20 @@ void addAttr(TAttr *new,char *nume,char *val)
 		 (*new)->value = val;
 		}
 	else
-	{	TAttr p;
-		for( p = *new; p->next != NULL; p = p->next);
-		p->next = calloc(1,sizeof(TNodAttr));
-		p->next->name = nume;
-		p->next->value = val;
+	{	TAttr p,ant = NULL;
+		int ok = 0;
+		for( p = *new; p != NULL; ant = p,p = p->next)
+			if(!strcmp(p->name,nume)){
+				ok = 1;
+				p->value = val;
+			}
+		//daca n am gasit niciun astfel de atribut
+		if(!ok && ant)
+		{
+		ant->next = calloc(1,sizeof(TNodAttr));
+		ant->next->name = nume;
+		ant->next->value = val;
+		}
 	}
 }
 //modifica valorile din lista style pt atribute a nodului root
@@ -479,8 +540,8 @@ void overrideStyle(TArb root,char **style,int elem)
 		{
 			TAttr aux = lista;
 			lista = lista->next;
-			freeAttr(aux);//daca da segfault posibil sa fie de aici
-			free(aux);
+			//freeAttr(aux);//daca da segfault posibil sa fie de aici DA,DA SEGUL FAULT
+			free(aux); 
 		}
 	root->info->style = NULL;
 	TAttr new = NULL;
@@ -538,22 +599,29 @@ void appendStyle(TArb r,char **style,int elem)
 	char *nume,*val;
 	for(i = 0; i < elem; i++)
 	{
-		nume = malloc(20);
-		val = malloc(20);
+		nume = malloc(50);
+		val = malloc(50);
 		nameVal(&nume,&val,style[i]); // dupa care fac trim pe ele
 		trim(&nume);
 		trim(&val);
 		int ok = 0;
-		for(ant = NULL; st != NULL ; ant = st,st = st->next)
+		for(ant = NULL,st = r->info->style; st != NULL ; ant = st,st = st->next)
 			if(!strcmp(st->name,nume))
-			{
+			{	
 				ok = 1;
 				st->value = val;
 			}
-		if(!ok && ant){
+		if(!ok && ant)
+			{	
 			ant->next = calloc(1,sizeof(TNodAttr));
 			ant->next->name = nume;
 			ant->next->value = val;
+			}
+		else if(!ok && !ant)
+		{
+			r->info->style = calloc(1,sizeof(TNodAttr));
+			r->info->style->name = nume;
+			r->info->style->value = val;
 		}
 	}
 }
@@ -567,8 +635,9 @@ IntrQ(queue,(void*)root);
 		TArb scos = calloc(1,sizeof(TNodArb));// TRE ELIBERAT
 		ExtrQ(queue,scos);
 		TArb p;
-		if(!strcmp(scos->info->type,type))
+		if(!strcmp(scos->info->type,type)){
 			appendStyle(scos,styleValues,elem);//overrideStyle(scos,styleValues,elem);
+		}
 		
 		for(p = scos->firstChild; p != NULL ; p = p->nextSibling){
 			if(!strcmp(p->info->type,type))
@@ -632,25 +701,29 @@ int exista(TArb root,char *class)
 	return 0;
 }
 
-void bfsAppendClass(TArb root,char **styleValues,int elem,char *class)
+int bfsAppendClass(TArb root,char **styleValues,int elem,char *class)
 {void *queue = InitQ(sizeof(TNodArb));
 IntrQ(queue,(void*)root);
-
+int ok = 0;
 	while(!EMPTYQ(queue))
 	{
 		TArb scos = calloc(1,sizeof(TNodArb));// TRE ELIBERAT
 		ExtrQ(queue,scos);
 		TArb p;
-		if(exista(root,class))
+		if(exista(root,class)){
+			ok = 1;
 			appendStyle(scos,styleValues,elem);
+		}
 	
 		for(p = scos->firstChild; p != NULL ; p = p->nextSibling){
-			if(exista(p,class))
+			if(exista(p,class)){
+				ok = 1;
 				appendStyle(p,styleValues,elem);
+			}
 			IntrQ(queue,(void*)p);
 		}
 	}
-	
+	return (ok == 1);
 }
 void bfsClass(TArb root,char **styleValues,int elem,char *class)
 {
@@ -677,16 +750,19 @@ int spatii(char *val)
 {
 	//pentru func de override in caz ca selectorul este tag tag sa stiu ca tre retinute 2 val
 	int nr = 0;
-	for(int i = 0; i < strlen(val); i++)
+	for(int i = 0; i < strlen(val); i++){
+		if(val[i] == '\"')
+			break;
 		if(val[i] == ' ')
 			nr++;
-	if(nr >= 2)
+	}
+	if(nr >= 1)
 		return 2;
 	return 0;
 }
 int main(int argc, char **argv)
 {
-	FILE *in = fopen("simple.html","r");
+	FILE *in = fopen(argv[1],"r");
 	if(!in)
 		return 1;
 	char c = ' ';
@@ -701,7 +777,7 @@ int main(int argc, char **argv)
 	while((c = fgetc(in)) != EOF)
 		{
 		nextState = Interpret(currentState,c);
-		//printf("%c %d %d\n",c,currentState,nextState);
+		//fprintf("%c %d %d\n",c,currentState,nextState);
 		if(c == '\n') // do nothing
 			continue;
 		else if(currentState == 1 && nextState == 1){
@@ -797,7 +873,7 @@ int main(int argc, char **argv)
 					TAttr p = scos->info->otherAttributes;
 					p->name = tmp;
 					p->value = value;
-					//printf("%s=%s\n",tmp,value);
+					//fprintf("%s=%s\n",tmp,value);
 				}
 				else //adauga la sf1
 				{
@@ -814,7 +890,7 @@ int main(int argc, char **argv)
 			{
 				//separa termenii pt value si name si ; intre ele						
 				int elem;
-				//printf("value= %s\n",value);
+				//fprintf("value= %s\n",value);
 				char **sir = attrs(value,&elem);
 				char *nume,*val;
 				for(int i = 0;i < elem;i++){
@@ -882,35 +958,63 @@ int main(int argc, char **argv)
 	//adaugare id prin parcurgere in latime
 	bfsID(a);
 	int taburi = 0;
-	FILE *comenzi = fopen("/home/bdi/SD/hw3HTML/_test/commands/commands-simple-8.in","r");
+	FILE *comenzi = fopen(argv[2],"r") , *out = fopen(argv[3],"w");
+
 	int linii;
 	if(!comenzi)
 		return 1;
 	fscanf(comenzi,"%d",&linii);
 	for(int i = 1; i <= linii+1 ;i++){
-		char *cmd = calloc(200,sizeof(char)); // lungimea unei comenzi citite din fisier
-		fgets(cmd,200,comenzi);
-
+		char *cmd = calloc(1024,sizeof(char)); // lungimea unei comenzi citite din fisier
+		fgets(cmd,1024,comenzi);
 		if(strlen(cmd) > 1){
 			cmd[strlen(cmd)-1] = '\0';
 		if(strstr(cmd,"add")){
-			addTag(a,cmd);//nu stiu daca se garanteaza corectitudinea comenzilor	
+			int rez = addTag(a,cmd,out);//nu stiu daca se garanteaza corectitudinea comenzilor	
 			bfsID(a);
+
 		}
 		else if(strstr(cmd,"deleteRecursively"))
 		{	
 			char *selector = cmd + strlen("deleteRecurively") + 2 + strlen("selector=\"");//ca sa obtin selector direct
 			selector[strlen(selector) - 1] = '\0'; // ca sa elimin " de la sfarsit
 			int rez = 0;
-			if(selector[0] == '.'){// cautam class la atribute
+			if(selector[0] == '.')
+			{// cautam class la atribute
 				rez = delClass(a,selector+1);
 				if(rez)
 					bfsID(a); 
 			}
-			else if(!strchr(selector,'>') && !strchr(selector,' ') && !strchr(selector,'.') && !strchr(selector,'#')) {// ca sa iau tag-ul
-				rez = delTag(a,selector);
-				if(rez)
-					bfsID(a); 
+			else if(!strchr(selector,'>') && !strchr(selector,' ') && !strchr(selector,'.') && !strchr(selector,'#')) 
+			{// ca sa iau tag-ul 
+				//selector e un singur tag
+				//functie care sa elimine recursiv toti subarorii care au root tag ul din selector
+				TArb *parinti = calloc(1024,sizeof(TArb));
+				int elem = 0;
+				roots(a,selector,&elem,parinti);
+				//avem toti parintii tag urilor egale cu selector
+				//acum sa refac legaturile pentru fii nodurilor
+				// si o func care sterge subarborii adica sa elibereze
+
+				for(int i = 0; i < elem ;i++)
+				{
+					TArb p = parinti[i]->firstChild,ant = NULL;
+					for(; p != NULL ; p = p->nextSibling)
+					{	
+						if(!strcmp(p->info->type,selector))
+						{
+							if(!ant)
+								parinti[i]->firstChild = p->nextSibling;
+							else
+								ant->nextSibling = p->nextSibling;
+							TArb aux = p;
+							//free aux adica subarborele
+						}
+						else
+							ant = p;
+					}
+				}
+				bfsID(a);
 			}
 			else if(strchr(selector,'>')) // cauta tag parinte si copil: tata>copil
 			{
@@ -921,13 +1025,21 @@ int main(int argc, char **argv)
 				strcpy(childtype,tok);
 				//sa verific daca am scos bine tok
 				TArb dad = NULL;
-				cautaTag(a,dadtype,&dad);
-				if(dad)
+				//cautaTag(a,dadtype,&dad);
+				//trebuie un vector cu toate tagurile de tip = dadtype
+				int nodtata = 0;
+				TArb *tati = calloc(100,sizeof(TArb));
+
+				parents(a,dadtype,&nodtata,tati);
+				int ok = 0;
+				for(int i = 0; i < nodtata; i++)
 				{
+					dad = tati[i];
 					TArb kids,ant = NULL;
-					for(kids = dad->firstChild ; kids != NULL ; kids = kids->nextSibling){
+					for(kids = dad->firstChild ; kids != NULL ; kids = kids->nextSibling)
+					{
 						if(!strcmp(kids->info->type,childtype))
-						{
+						{	ok = 1;
 							if(!ant)
 								dad->firstChild = kids->nextSibling;
 							else
@@ -936,11 +1048,14 @@ int main(int argc, char **argv)
 							//free aux
 							rez = 1;
 						}
-						else
-							ant = kids;
+							else
+								ant = kids;
 					}
+					bfsID(dad);
 				}
-				bfsID(dad);
+				if(!ok)
+					fprintf(out,"Delete recursively failed: no node found for selector %s>%s!\n",dadtype,childtype);
+				
 			}			
 			else if(strchr(selector+1,' '))
 			{
@@ -950,23 +1065,34 @@ int main(int argc, char **argv)
 				tok = strtok(NULL," ");
 				childtype = tok;
 				TArb dad = NULL,son = NULL;
-				cautaTag(a,dadtype,&dad);
-				if(dad) // exista nodul tata in arbroe si cauta subarbore cu radacina tata
-				{	
-					cautaTag(dad,childtype,&son);
-					if(son)//daca am gasit tre sa l sterg si sa refac legaturile
-					{
-						char *idson = malloc(10);
-						strcpy(idson,son->info->id);
-						char *iddad = malloc(10);
-						strcpy(iddad,idson);
-						iddad[strlen(iddad) -2 ] = '\0';
-						TArb parent = NULL;
-						cautaID(dad,iddad,&parent);
-						deleteID(parent,idson);
-						delSubtree(son);
-						bfsID(parent);
+				int result = cautaTag(a,dadtype,&dad);
+				if(dad)
+					result = 1;
+				while(result){ 
+					if(dad) // exista nodul tata in arbroe si cauta subarbore cu radacina tata
+					{	
+						cautaTag(dad,childtype,&son);
+						if(son)//daca am gasit tre sa l sterg si sa refac legaturile
+						{
+							char *idson = malloc(30);
+							strcpy(idson,son->info->id);
+							char *iddad = malloc(30);
+							strcpy(iddad,idson);
+							iddad[strlen(iddad) -2 ] = '\0';
+							TArb parent = NULL;
+							cautaID(dad,iddad,&parent);
+							deleteID(parent,idson);
+							delSubtree(son);
+							bfsID(parent);
+						}
+						
 					}
+					dad = NULL;
+					son = NULL;
+					cautaTag(a,dadtype,&dad);
+					cautaTag(dad,childtype,&son);
+					if(!son)
+						result = 0;
 				}
 
 			}
@@ -988,31 +1114,28 @@ int main(int argc, char **argv)
 		else if(strstr(cmd,"appendStyle"))
 			{
 				char *rest = cmd + strlen("appendStyle") + strlen("selector") + 3; //selector=" sunt avansate 
-				char *selector = malloc(20);
+				char *selector = malloc(200);
 				int exista = spatii(rest);
 				char *select = NULL;
 				char *style;
 				if(exista == 2){
-					char *rest2 = malloc(50);
+					char *rest2 = malloc(200);
 					strcpy(rest2,rest);
 					select = strtok(rest,"\"");
-					
 					rest2 = rest2+strlen(select) + 2 + strlen("style=\"");
 					rest2[strlen(rest2)-1] = '\0';
 					style = rest2;
 				}
 				else{
-				char *tok = strtok(rest," ");
+				char *tok = strtok(rest,"\"");
 				strcpy(selector,tok);
-				selector[strlen(selector) -1 ] = '\0';
-				tok = strtok(NULL," ");
-				style = tok + strlen("style=\"");
-
-				style[strlen(style) -1 ] = '\0';
+				tok = strtok(NULL,"\"");
+				tok = strtok(NULL,"\"");
+				style = tok;
 				}//am obtinut atributele pe care trebuie sa le foloses pt style
 				if(!select)
 				{
-					if(strchr(selector,'>')) // cauta tag parinte si copil: tata>copil
+					if(strchr(selector,'>')) // sa caut toate tag urile,pana acum ia doar 1
 					{	
 						char *tok = strtok(selector,">");
 						char *dadtype = malloc(20),*childtype = malloc(20);
@@ -1021,11 +1144,13 @@ int main(int argc, char **argv)
 						strcpy(childtype,tok);
 						//sa verific daca am scos bine tok
 						TArb dad = NULL;
-						cautaTag(a,dadtype,&dad);
-						if(dad)
+						TArb *tati = calloc(20,sizeof(TArb)),*fii = calloc(20,sizeof(TArb));
+						int nr1 = 0,nr2 = 0;
+						parents(a,dadtype,&nr1,tati);
+						for(int i = 0 ; i < nr1 ;i++)
 						{
 							TArb kids;
-							for(kids = dad->firstChild ; kids != NULL ; kids = kids->nextSibling){
+							for(kids = tati[i]->firstChild ; kids != NULL ; kids = kids->nextSibling){
 								if(!strcmp(kids->info->type,childtype))
 								{
 									int elem = 0;
@@ -1037,6 +1162,7 @@ int main(int argc, char **argv)
 					}	
 					else if(!strchr(selector,'>') && !strchr(selector,' ') && !strchr(selector,'.') && !strchr(selector,'#')) 
 						{
+
 							int elem = 0;
 							char **atribute = attrs(style,&elem);
 							bfsAppendTag(a,atribute,elem,selector);
@@ -1046,7 +1172,9 @@ int main(int argc, char **argv)
 					{
 						int elem = 0;
 						char **atribute = attrs(style,&elem);
-						bfsAppendClass(a,atribute,elem,selector + 1);// ca sa trec peste punct
+						int ok = bfsAppendClass(a,atribute,elem,selector + 1);// ca sa trec peste punct
+						if(!ok)
+							fprintf(out,"Append to style failed: no node found for selector %s!\n",selector);
 					}
 					else if(selector[0] == '#') 
 					{
@@ -1061,7 +1189,32 @@ int main(int argc, char **argv)
 						if(dad)
 							bfsAppendID(dad,atribute,elem,id);//findID(dad,atribute,elem,id);	
 					}
-				}
+					else if(strchr(selector+1,'.'))
+					{
+						int elem = 0;
+						char **atribute = attrs(style,&elem);
+						char *tok = strtok(selector,".");
+						char *type = tok;
+						tok = strtok(NULL,".");
+						char *class = tok;
+						TArb tag = NULL; // tre sa fac o functie cautare tag care sa returneze vector cu toate tag-urile
+						TArb *tati = calloc(20,sizeof(TArb));
+						int nr = 0;
+						parents(a,type,&nr,tati);
+						int ok = 0;
+						for(int i = 0 ;i < nr ;i++)
+						{
+							TArb tag = tati[i];
+							if(findClass(tag,class)){
+								ok = 1;
+								appendStyle(tag,atribute,elem);
+							}
+						}
+						if(!ok)
+							fprintf(out,"Append to style failed: no node found for selector %s.%s!\n",type,class);
+
+					}
+				}	
 				else
 				{
 					int elem = 0;
@@ -1072,11 +1225,23 @@ int main(int argc, char **argv)
 					tok = strtok(NULL," ");
 					childtype = tok;
 					TArb dad = NULL,son = NULL;
-					cautaTag(a,dadtype,&dad);
-					if(dad) // exista nodul tata in arbrore si cauta subarbore cu radacina tata
-						bfsAppendTag(dad,atribute,elem,childtype);//nu stiu daca ia toate tag-urile
+					TArb *tati = calloc(1024,sizeof(TArb)),*fii = calloc(1024,sizeof(TArb));
+					int nr1 = 0,nr2 = 0;
+					parents(a,dadtype,&nr1,tati);
+
+					for(int i = 0 ; i < nr1 ;i++)
+					{
+						parents(tati[i],childtype,&nr2,fii);
+						for(int j = 0 ; j < nr2;j++){
+							//printf("%s %s\n",tati[i]->info->type,fii[j]->info->type);
+							appendStyle(fii[j],atribute,elem);
+						}
+					}
+					//if(dad) // exista nodul tata in arbrore si cauta subarbore cu radacina tata
+					//	bfsAppendTag(dad,atribute,elem,childtype);//nu stiu daca ia toate tag-urile
 					
 				}
+
 			}
 		else if(strstr(cmd,"overrideStyle"))
 			{
@@ -1095,18 +1260,18 @@ int main(int argc, char **argv)
 					style = rest2;
 				}
 				else{
-				char *tok = strtok(rest," ");
+				char *tok = strtok(rest,"\"");
 				strcpy(selector,tok);
-				selector[strlen(selector) -1 ] = '\0';
-				tok = strtok(NULL," ");
-				style = tok + strlen("style=\"");
-
-				style[strlen(style) -1 ] = '\0';
+				//selector[strlen(selector) -1 ] = '\0';
+				tok = strtok(NULL,"\"");
+				tok = strtok(NULL,"\"");
+				style = tok ;
 				}//am obtinut atributele pe care trebuie sa le foloses pt style
 				if(!select)
 				{
 					if(strchr(selector,'>')) // cauta tag parinte si copil: tata>copil
 					{	
+
 						char *tok = strtok(selector,">");
 						char *dadtype = malloc(20),*childtype = malloc(20);
 						strcpy(dadtype,tok);
@@ -1114,18 +1279,22 @@ int main(int argc, char **argv)
 						strcpy(childtype,tok);
 						//sa verific daca am scos bine tok
 						TArb dad = NULL;
-						cautaTag(a,dadtype,&dad);
-						if(dad)
+						TArb *tati = calloc(20,sizeof(TArb)),*fii = calloc(20,sizeof(TArb));
+						int nr1 = 0,nr2 = 0;
+						parents(a,dadtype,&nr1,tati);
+						for(int i = 0; i< nr1; i++)
 						{
-							TArb kids;
-							for(kids = dad->firstChild ; kids != NULL ; kids = kids->nextSibling){
+							TArb kids = NULL;
+							int elem = 0;
+							char *copie = malloc(100);
+							strcpy(copie,style);
+							char **atribute = attrs(copie,&elem);
+							for(kids = tati[i]->firstChild ; kids != NULL ; kids = kids->nextSibling)
+							{
 								if(!strcmp(kids->info->type,childtype))
-								{
-									int elem = 0;
-									char **atribute = attrs(style,&elem);
 									overrideStyle(kids,atribute,elem);
-								}	
 							}
+							
 						}
 					}	
 					else if(!strchr(selector,'>') && !strchr(selector,' ') && !strchr(selector,'.') && !strchr(selector,'#')) 
@@ -1154,9 +1323,31 @@ int main(int argc, char **argv)
 							findID(dad,atribute,elem,id);	
 						
 					}
+					else if(strchr(selector+1,'.'))
+					{
+						int elem = 0;
+						char **atribute = attrs(style,&elem);
+						char *tok = strtok(selector,".");
+						char *type = tok;
+						tok = strtok(NULL,".");
+						char *class = tok;
+						TArb tag = NULL; // tre sa fac o functie cautare tag care sa returneze vector cu toate tag-urile
+						TArb *tati = calloc(20,sizeof(TArb));
+						int nr = 0;
+						parents(a,type,&nr,tati);
+						
+						for(int i = 0 ;i < nr ;i++)
+						{
+							TArb tag = tati[i];
+							if(findClass(tag,class)){
+								overrideStyle(tag,atribute,elem);
+							}
+						}
+
+					}
 				}
 				else
-				{
+				{	
 					int elem = 0;
 					char **atribute = attrs(style,&elem);
 					char *dadtype, *childtype;
@@ -1165,19 +1356,33 @@ int main(int argc, char **argv)
 					tok = strtok(NULL," ");
 					childtype = tok;
 					TArb dad = NULL,son = NULL;
-					cautaTag(a,dadtype,&dad);
-					if(dad) // exista nodul tata in arbrore si cauta subarbore cu radacina tata
-						overrideStyleTAG(dad,childtype,atribute,elem);
-					
+					TArb *tati = calloc(500,sizeof(TArb)),*fii = calloc(500,sizeof(TArb));
+					int nr1 = 0,nr2 = 0;
+					parents(a,dadtype,&nr1,tati);
+					//if(dad) // exista nodul tata in arbrore si cauta subarbore cu radacina tata
+					//	overrideStyleTAG(dad,childtype,atribute,elem);
+					int ok = 0;
+					for(int i = 0 ; i < nr1 ;i++)
+					{
+						parents(tati[i],childtype,&nr2,fii);
+						if(nr2)
+							ok = 1;
+						for(int j = 0 ; j < nr2;j++)
+							overrideStyle(fii[j],atribute,elem);
+					}
+					if(!ok)
+						fprintf(out,"Override style failed: no node found for selector %s %s!\n",dadtype,childtype);
 				}
 			}
 		
 		}
 
 	}
-	RSD(a,&taburi);//indentare
-	//mai am de facut citirea din param liniei de comanda
+	RSD(a,&taburi,out);//indentare
 	
-
+	// n am rezolvat cu commanda la 22 pt big si small
+	// sa rezolv valgrind
+	delSubtree(a);
+	
 	return 0;
 }
